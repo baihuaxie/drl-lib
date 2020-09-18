@@ -2,6 +2,8 @@
 Utilities for logging, etc.
 """
 
+import logger
+
 def configure_logger(log_path, **kwargs):
     """
     Configure logger
