@@ -4,6 +4,10 @@ Utilities for command line
 
 import argparse
 
+import gym
+from gym.wrappers import FlattenObservation, FilterObservation
+
+from atari_wrappers import make_atari, wrap_deepmind
 
 def arg_parser():
     """
@@ -32,6 +36,52 @@ def common_arg_parser():
     parser.add_argument("--save_video_length", help="length of recorded video in seconds", type=int, default=200)
     parser.add_argument("--log_path", help="directory to save learning curve data", type=str, default=None)
     parser.add_argument("--play", help="", default=False, action="store_true")
-    
+
     return parser
+
+def make_env(env_id, env_type, mpi_rank=0, subrank=0, seed=None, reward_scale=1.0, gamestate=None, flatten_dict_observations=True,
+             wrapper_kwargs=None, env_kwargs=None, logger_dir=None, initializer=None):
+    """
+    Make environment
+
+    Args:
+        env_id: (str) environment id e.g. 'Reacher-v2'
+        env_type: (str) environment type e.g. 'atari'
+        mpi_rank: (int) rank for mpi; default=0 (disabled on windows for lack of MPI support from pytorch)
+        subrank: (int) subrank; default=0 (disabled on windows for lack of MPI support from pytorch)
+        seed: (int) random seed
+        reward_scale: (float) scale factor for reward (== discount factor??); default=1.0
+        gamestate: (??) game state to load (for retro games only)
+        flatten_dict_observations: (??) ??
+        wrapper_kwargs: (dict) dictionary of parameter settings for wrapper
+        env_kwargs: (dict) dictionary of parameter settings for environment
+        logger_dir: (str) logger path
+        initializer: (??) ??
+    """
+    if initializer is not None:
+        initializer(mpi_rank=mpi_rank, subrank=subrank)
+
+    wrapper_kwargs = wrapper_kwargs or {}
+    env_kwargs = env_kwargs or {}
+
+    if ':' in env_id:
+        raise ValueError("env_id {} does not conform to accepted format!".format(env_id))
+
+    if env_type == 'atari':
+        # make atari environments with a wrapper function
+        env = make_atari(env_id)
+    elif env_type == 'retro':
+        raise ValueError("retro environments not supported yet!")
+    else:
+        # make a gym environment with parameter settings
+        env = gym.make(env_id, **env_kwargs)
+
+    # flatten the observation space
+    if flatten_dict_observations and isinstance(env.observation_spaces, gym.space.Dict):
+        env = FlattenObservation(env)
+
+    # add seed to env
+    env.seed(seed + subrank if seed is not None else None)
+
+
 
