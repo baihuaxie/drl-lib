@@ -4,6 +4,8 @@
 
 ### imports: python
 import sys
+import os
+import numpy as np
 
 import gym
 
@@ -19,7 +21,11 @@ except ImportError:
 
 def train(args, extra_args):
     """
-    Main training loop
+    Main entrance to training session
+    - group arguments for environment, agent and training
+    - build environment
+    - build model
+    - train model with agent's learn() function
 
     Args:
         args: (argparse.ArgumentParser) parsed command line arguments
@@ -36,15 +42,45 @@ def train(args, extra_args):
     learn = utils.get_learn_function(args.alg)
     # default environment settings
     alg_kwargs = utils.get_learn_function_defaults(args.alg, env_type)
+    # add (if any) extra settings from command line
     alg_kwargs.update(extra_args)
 
+    # build environment
     env = utils.build_env(args)
+
+    # save vectorized video recorder if specified (TBD)
+
+    # add network type if specified
+    if args.network:
+        alg_kwargs['network'] = args.network
+    # use default network type if not specified
+    else:
+        if alg_kwargs.get('network') is None:
+            alg_kwargs['network'] = utils.get_default_network(env_type)
+
+    # summarize training setup
+    print("Training {} on {}:{} with arguments \n{}".format(args.alg, env_type, env_id, alg_kwargs))
+
+    # train model with the agent's learn() function
+    model = learn(
+        env=env,
+        seed=seed,
+        total_timesteps=total_timesteps,
+        **alg_kwargs
+    )
+
+    return model, env
 
 
 
 def main(args):
     """
-    Main function
+    Main script
+    - parse commandline arguments
+    - set up logger
+    - (optional) set up distributed training
+    - enter training
+
 
     Known args:
         env: (str) environment id, e.g., 'Reacher-v2'
@@ -77,9 +113,51 @@ def main(args):
         rank = MPI.COMM_WORLD.Get_rank()
         utils.configure_logger(args.log_path, format_strs=[])
 
+    # train agent
     model, env = train(args, extra_args)
 
+    # save trained agent
+    if args.save_path is not None and rank == 0:
+        save_path = os.path.expanduser(args.save_path)
+        model.save(save_path)
 
+    # test the trained agent by playing environment
+    if args.play:
+        logger.log("Running Trained Model")
+        # reset environment
+        obs = env.reset()
+        # obtain initial state s0 if available
+        state = model.initial_state if hasattr(model, 'initial_state') else None
+        dones = np.zeros((1,))
+
+        # initialize episodic reward (or the empirical return G)
+        # case for vectorized environments TBD
+        episode_rew = np.zeros(1)
+
+        # Q: should terminal condition for this loop really be indefinitely True?
+        while True:
+            # 1) make one policy step ??
+            if state is not None:
+                actions, _, state, _ = model.step(obs, S=state, M=dones)
+            else:
+                actions, _, _, _ = model.step(obs)
+            # 2) make one environment step by taking action a
+            # -- returns (observation, reward, terminal_state_flag, info_dict)
+            obs, rew, done, _ = env.step(actions)
+            # 3) accumulate episodic returns
+            episode_rew += rew
+            # 4) renders environment for displaying
+            env.render()
+
+            done_any = done.any() if isinstance(done, np.ndarray) else done
+            if done_any:
+                for i in np.nonzero(done)[0]:
+                    print("episode_rew={}".format(episode_rew[i]))
+                    episode_rew[i] = 0
+
+    env.close()
+
+    return model
 
 
 

@@ -1,3 +1,7 @@
+"""
+    Wrappers for Atari games
+"""
+
 import numpy as np
 import os
 os.environ.setdefault('PATH', '')

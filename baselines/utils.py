@@ -174,4 +174,15 @@ def build_env(args):
 
     if env_type in ['atari', 'retro']:
         if alg == 'deepq':
-            env = make_env(env_id, env_type, seed=seed, wrapper_kwarg={'frame_stack': True})
+            env = make_env(env_id, env_type, seed=seed, wrapper_kwargs={'frame_stack': True})
+        elif alg == 'trpo_mpi':
+            env = make_env(env_id, env_type, seed=seed)
+        else:
+            frame_stack_size = 4
+            env = make_env(env_id, env_type, nenv, seed, gamestate=args.gamestate, reward_scale=args.reward_scale)
+            # vectorize environments (TBD)
+
+    # make environments for MuJoCo games (TBD)
+
+    return env
+            

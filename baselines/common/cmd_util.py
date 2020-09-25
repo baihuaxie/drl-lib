@@ -6,8 +6,9 @@ import argparse
 
 import gym
 from gym.wrappers import FlattenObservation, FilterObservation
-
-from atari_wrappers import make_atari, wrap_deepmind
+import wrappers_retro
+import wrappers
+from wrappers_atari import make_atari, wrap_deepmind
 
 def arg_parser():
     """
@@ -57,6 +58,9 @@ def make_env(env_id, env_type, mpi_rank=0, subrank=0, seed=None, reward_scale=1.
         env_kwargs: (dict) dictionary of parameter settings for environment
         logger_dir: (str) logger path
         initializer: (??) ??
+
+    Returns:
+        env: (Env) the set-up environment
     """
     if initializer is not None:
         initializer(mpi_rank=mpi_rank, subrank=subrank)
@@ -82,6 +86,30 @@ def make_env(env_id, env_type, mpi_rank=0, subrank=0, seed=None, reward_scale=1.
 
     # add seed to env
     env.seed(seed + subrank if seed is not None else None)
+
+    # set up Monitor (TBD)
+
+    if env_type == 'atari':
+        env = wrap_deepmind(env, **wrapper_kwargs)
+    elif env_type == 'retro':
+        if 'frame_stack' not in wrapper_kwargs:
+            wrapper_kwargs['frame_stack'] = 1
+        # wrap retro games
+        env = wrappers_retro.wrap_deepmind_retro(env, **wrapper_kwargs)
+
+    if isinstance(env.action_space, gym.spaces.Box):
+        # if action_space is Box type, clip the action values to be within the box's boundaries
+        env = wrappers.ClipActionsWrapper(env)
+
+    if reward_scale != 1:
+        # if reward scaling factor is used, scale the rewards accordingly
+        # very important feature for PPO
+        env = wrappers.RewardScalerWrapper(env, reward_scale)
+
+    return env
+
+    
+
 
 
 
