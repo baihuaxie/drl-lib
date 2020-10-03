@@ -143,7 +143,7 @@ def get_learn_function_defaults(alg, env_type):
     try:
         # try to get defaults if the agent has one
         alg_defaults = get_alg_module(alg, 'defaults')
-        kwargs = getattr(alg_defaults, env_type)() 
+        kwargs = getattr(alg_defaults, env_type)()
     except (ImportError, AttributeError):
         # else just set defaults to empty dictionary
         kwargs = {}
@@ -185,4 +185,3 @@ def build_env(args):
     # make environments for MuJoCo games (TBD)
 
     return env
-            

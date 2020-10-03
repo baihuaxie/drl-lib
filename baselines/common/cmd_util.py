@@ -1,14 +1,17 @@
 """
 Utilities for command line
+
+- arg_parser(): creates an empty argument parser object to hold command line arguments
+- common_arg_parser(): add command line arguments with default values, help strings, etc
+- make_env(): return an environment as set up specified by command line arguments
 """
 
 import argparse
 
 import gym
 from gym.wrappers import FlattenObservation, FilterObservation
-import wrappers_retro
-import wrappers
-from wrappers_atari import make_atari, wrap_deepmind
+from common import wrappers_retro, wrappers
+from common.wrappers_atari import make_atari, wrap_deepmind
 
 def arg_parser():
     """
@@ -23,7 +26,7 @@ def common_arg_parser():
     """
 
     parser = arg_parser()
-    parser.add_argument("--env", help="environment ID", type=str, default="Reacher-v2")
+    parser.add_argument("--env", help="environment ID", type=str, default="CartPole")
     parser.add_argument("--env_type", help="type of environment", type=str, default=None)
     parser.add_argument("--seed", help="random number generator seed", type=int, default=None)
     parser.add_argument("--alg", help="algorithm", type=str, default="ppo")
@@ -81,7 +84,7 @@ def make_env(env_id, env_type, mpi_rank=0, subrank=0, seed=None, reward_scale=1.
         env = gym.make(env_id, **env_kwargs)
 
     # flatten the observation space
-    if flatten_dict_observations and isinstance(env.observation_spaces, gym.space.Dict):
+    if flatten_dict_observations and isinstance(env.observation_spaces, gym.spaces.Dict):
         env = FlattenObservation(env)
 
     # add seed to env
@@ -107,9 +110,3 @@ def make_env(env_id, env_type, mpi_rank=0, subrank=0, seed=None, reward_scale=1.
         env = wrappers.RewardScalerWrapper(env, reward_scale)
 
     return env
-
-    
-
-
-
-

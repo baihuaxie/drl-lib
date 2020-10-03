@@ -7,9 +7,9 @@ import sys
 import os
 import numpy as np
 
-import gym
 
 from common.cmd_util import common_arg_parser
+import logger
 import utils
 
 try:

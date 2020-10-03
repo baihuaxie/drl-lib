@@ -10,7 +10,7 @@ import gym
 from gym import spaces
 import cv2
 cv2.ocl.setUseOpenCL(False)
-from .wrappers import TimeLimit
+from common.wrappers import TimeLimit
 
 
 class NoopResetEnv(gym.Wrapper):
