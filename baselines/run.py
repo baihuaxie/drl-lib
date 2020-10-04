@@ -3,14 +3,17 @@
 """
 
 ### imports: python
-import sys
 import os
+import sys
+# add parent director ("baselines") into import search paths
+sys.path.append("../")
+
 import numpy as np
 
+from baselines.common.cmd_util import common_arg_parser
+from baselines.common import logger
+from baselines import utils
 
-from common.cmd_util import common_arg_parser
-import logger
-import utils
 
 try:
     from mpi4py import MPI

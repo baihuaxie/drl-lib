@@ -8,7 +8,7 @@ import multiprocessing
 from importlib import import_module
 from collections import defaultdict
 # custom libs
-import logger
+from common import logger
 import gym
 # user libs
 from common.cmd_util import make_env
