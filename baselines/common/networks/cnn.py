@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
 
+from networks_util import register
+
 
 # pretrained models
 model_urls = {
@@ -245,7 +247,7 @@ def _convnet(arch, block, layers, latent_dim=512, pretrained=False, progress=Fal
 
     return model
 
-
+@register(name='simplecnn-k3s4')
 def convnet_simplecnn_k3s4(pretrained=False, progress=False, **kwargs):
     """
     Build simple CNN network
