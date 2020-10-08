@@ -13,6 +13,12 @@ def register(name):
         name: (str) network name; used as arguments passed to the decorator
 
 
+    Note:
+    - a network builder is a function that takes **kwargs arguments and returns a customized network object
+        - i.e., call this function by MyNetwork = network_func(**kwargs)
+    - using a register decorator is a more Pythonic way to maintain & call dynamic functions compared to
+      maintain a list of names
+
     To register a new network builder:
     in another_network.py file, do:
 
@@ -22,9 +28,6 @@ def register(name):
         ...
         return network_function_or_class_obj
 
-    Note:
-    - using a register decorator is a more Pythonic way to maintain & call dynamic functions
-      compared to maintain a list of names
     """
     def _decorator(func):
         """
@@ -45,11 +48,11 @@ def get_network_builder(name):
         name: (str) name of network builder
 
     Returns:
-        (network builder function) a network builder function that takes addition keyword arguments
-                                     to instantiate a network class object
+        (a customized network object) a network object that is customized by **kwarg arguments
 
     Note:
     - call this function by: MyNetwork = get_network_builder(name)(**kwargs)
+    - use the return of this function by: network_output = MyNetwork(network_input)
     """
 
     if callable(name):
