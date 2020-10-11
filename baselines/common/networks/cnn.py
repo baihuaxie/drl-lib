@@ -6,8 +6,6 @@ import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
 
-from networks_util import register
-
 
 # pretrained models
 model_urls = {
@@ -128,7 +126,11 @@ class ConvNet(nn.Module):
         """
         super(ConvNet, self).__init__()
 
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
+        if act_layer is None:
+            act_layer = nn.ReLU
         self._act_layer = act_layer
 
         self.conv1 = conv3x3(3, 16, stride=2)
@@ -246,15 +248,3 @@ def _convnet(arch, block, layers, latent_dim=512, pretrained=False, progress=Fal
             model.load_state_dict(state_dict)
 
     return model
-
-@register(name='simplecnn-k3s4')
-def convnet_simplecnn_k3s4(pretrained=False, progress=False, **kwargs):
-    """
-    Build simple CNN network
-    - kernel_size = 3 (default)
-    - stacks = 4
-        each stack contains 1 block with stride=2
-    - latent_dim = 512
-    """
-    return _convnet('simplecnn', block=BasicBlock, layers=[1, 1, 1, 1], latent_dim=512,
-                    pretrained=pretrained, progress=progress, **kwargs)

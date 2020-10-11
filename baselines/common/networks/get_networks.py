@@ -2,6 +2,8 @@
 Utilities to register, build networks
 """
 
+from common.networks.cnn import _convnet, BasicBlock
+
 mapping = {}
 
 # decorator
@@ -37,6 +39,19 @@ def register(name):
         mapping[name] = func
         return func
     return _decorator
+
+
+@register(name='simplecnn')
+def convnet_simplecnn_k3s4(pretrained=False, progress=False, **kwargs):
+    """
+    Simple CNN network
+    - kernel_size = 3 (default)
+    - stacks = 4
+        each stack contains 1 block with stride=2
+    - latent_dim = 512
+    """
+    return _convnet('simplecnn', block=BasicBlock, layers=[1, 1, 1, 1], latent_dim=512,
+                    pretrained=pretrained, progress=progress, **kwargs)
 
 
 

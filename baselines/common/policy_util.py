@@ -4,30 +4,57 @@ Encapsulation of policy and value function estimations with shared parameters
 
 import torch
 
-from networks.networks_util import get_network_builder
+from common.networks.get_networks import get_network_builder
 
 class PolicyWithValue(object):
     """
     Common interface for policy and value networks
     """
 
-    def __init__(self, env, observation, latent, estimate_q=False, vf_latent=None):
+    def __init__(self, policy_net, env=None, observations=None, value_net=None,
+                 estimate_q=False, normalize_observations=False):
         """
         Constructor
 
         Args:
             env:            (gym.Env) environment
-            observation:   (tensor) observations from environment
+            observations:   (torch.Tensor) observations from environment
+            policy_net:     (str) type of policy network
+            value_net:      (str) type of value network; if None or 'shared', default
+                            value_net = policy_net
+            estimate_q:     (bool) if True also returns an estimate for q-value 
         """
+        super().__init__()
 
-        raise NotImplementedError
+        self._policy_net = get_network_builder(policy_net)()
 
-    def normalize_observations(self, observations):
+        # consider cases where policy net and value net share all but last few output layers?
+        if value_net is None or value_net == 'shared':
+            self._value_net = self._policy_net
+        else:
+            self._value_net = get_network_builder(value_net)()
+
+        self._X = observations
+        self._env = env
+        self._estimate_q = estimate_q
+
+        if normalize_observations:
+            self._normalize_observations()
+
+        self._encode_observations()
+
+    def _normalize_observations(self):
         """
-        Normalizes the observation space
+        Normalizes the observations
         """
-        raise NotImplementedError
+        pass
 
+    def _encode_observations(self):
+        """
+        Encode the observations to be suitable for env.observation_space
+        """
+        pass
+        
     def step(self, observation, **extra_feed):
         """
         Compute the next action(s) given the observation(s)
@@ -38,14 +65,13 @@ class PolicyWithValue(object):
         Returns:
  
         """
-
-        raise NotImplementedError
+        pass
 
     def value(self, observations, **extra_feed):
         """
         Compute the value estimate given the observation(s)
         """
-        raise NotImplementedError
+        pass
 
 
 def build_policy(env, policy_network, value_network=None, normalize_observations=False, **policy_kwargs):
