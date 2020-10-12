@@ -2,13 +2,13 @@
 Miscellaneous utilities
 """
 
-
 try:
     import MPI
 except ImportError:
     MPI = None
 
 import torch
+from gym.spaces import Discrete, Box, MultiDiscrete
 
 
 
@@ -30,5 +30,19 @@ def set_global_seed(seed):
         torch.cuda.manual_seed(myseed)
     else:
         torch.manual_seed(myseed)
+
+
+def encode_observation(ob_space):
+    """
+    Encode observation in the way that is appropriate to the environment's observation space
+
+    Args:
+        ob_space: (gym.space) observation space type; Box, Discrete or MultiDiscrete
+    """
+    if isinstance(ob_space, Box):
+        pass
+
+
+
 
     
