@@ -2,23 +2,27 @@
 Encapsulation of policy and value function estimations with shared parameters
 """
 
+import sys
+sys.path.append('../')
+
 import torch
+from gym.spaces import Discrete, Box, MultiDiscrete
 
 from common.networks.get_networks import get_network_builder
+from common.math_util import RunningMeanStd
 
 class PolicyWithValue(object):
     """
     Common interface for policy and value networks
     """
 
-    def __init__(self, policy_net, env=None, observations=None, value_net=None,
+    def __init__(self, policy_net, env=None, obs_shape=None, value_net=None,
                  estimate_q=False, normalize_observations=False):
         """
         Constructor
 
         Args:
             env:            (gym.Env) environment
-            observations:   (torch.Tensor) observations from environment
             policy_net:     (str) type of policy network
             value_net:      (str) type of value network; if None or 'shared', default
                             value_net = policy_net
@@ -34,26 +38,39 @@ class PolicyWithValue(object):
         else:
             self._value_net = get_network_builder(value_net)()
 
-        self._X = observations
         self._env = env
-        self._estimate_q = estimate_q
+        self._estimate_q_flag = estimate_q
+        self._normalize_obs_flag = normalize_observations
 
-        if normalize_observations:
-            self._normalize_observations()
+        self._rms = RunningMeanStd(shape=obs_shape)
 
-        self._encode_observations()
 
-    def _normalize_observations(self):
+    def _normalize_observations(self, obs, clip_range=[-50.0, 50.0]):
         """
-        Normalizes the observations
-        """
-        pass
+        Normalizes the observations to approximately N(0,1)
+        by running mean & std with clipping
 
-    def _encode_observations(self):
+        Args:
+            obs: (tensor) observations
+        """
+        self._rms.update(obs)
+        norm_x = torch.clamp((obs - self._rms.mean) / self._rms.std, \
+                              min(clip_range), max(clip_range))
+        return norm_x
+
+
+    def _encode_observations(self, obs_space, obs):
         """
         Encode the observations to be suitable for env.observation_space
+
+        Args:
+            obs_space: (gym.Space) type of obsrervation space; Box, Discrete, MultiDiscrete
+            obs: (tensor) observation
         """
-        pass
+        if isinstance(ob_space, Discrete):
+            pass
+        
+
         
     def step(self, observation, **extra_feed):
         """
@@ -105,3 +122,14 @@ def build_policy(env, policy_network, value_network=None, normalize_observations
             # get observation space
             ob_space = env.observation_space
 
+
+
+if __name__ == '__main__':
+    net = PolicyWithValue(
+        policy_net = 'simplecnn',
+        normalize_observations=True
+    )
+    import numpy as np
+    obs = np.random.randn(1, 2)
+    obs_norm = net._normalize_observations(torch.from_numpy(obs))
+    print(obs_norm.numpy())
