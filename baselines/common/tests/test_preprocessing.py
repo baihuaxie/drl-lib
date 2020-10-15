@@ -1,5 +1,7 @@
 """
-    test running mean & std calculation
+    Test observation pre-processing
+    - running mean & std calculation
+    - one-hot encoding of Discrete observations
 """
 
 import pytest
@@ -7,9 +9,11 @@ import pytest
 import sys
 sys.path.append('../../')
 
+import torch
+import gym
 import numpy as np
 
-from common.math_util import RunningMeanStd
+from common.preprocessor import RunningMeanStd, OneHotPreprocessor
 
 
 def test_runningmeanstd():
@@ -36,3 +40,18 @@ def test_runningmeanstd():
         print(ms2)
 
         assert np.allclose(ms1, ms2)
+
+
+def test_onehotpreprocessor():
+    """
+    test one-hot encoding
+    """
+    # discrete observations as 1-d tensor
+    obs = torch.randint(0, 10, (20,))
+
+    encoder = OneHotPreprocessor(gym.spaces.Discrete(10))
+    # take non-zero elements' indices of encoded observation
+    # along one-hot vector axis (axis=1)
+    indices = encoder(obs).nonzero(as_tuple=True)[1]
+
+    assert (obs == indices).all() 

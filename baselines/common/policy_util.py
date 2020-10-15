@@ -9,7 +9,7 @@ import torch
 from gym.spaces import Discrete, Box, MultiDiscrete
 
 from common.networks.get_networks import get_network_builder
-from common.math_util import RunningMeanStd
+from common.preprocessor import RunningMeanStd, OneHotPreprocessor
 
 class PolicyWithValue(object):
     """
@@ -43,6 +43,9 @@ class PolicyWithValue(object):
         self._normalize_obs_flag = normalize_observations
 
         self._rms = RunningMeanStd(shape=obs_shape)
+        
+        if isinstance(env.observation_space, Discrete):
+            self._encoder = OneHotPreprocessor(env.Observation_space)
 
 
     def _normalize_observations(self, obs, clip_range=[-50.0, 50.0]):
@@ -59,7 +62,7 @@ class PolicyWithValue(object):
         return norm_x
 
 
-    def _encode_observations(self, obs_space, obs):
+    def _encode_observations(self, obs):
         """
         Encode the observations to be suitable for env.observation_space
 
@@ -67,10 +70,8 @@ class PolicyWithValue(object):
             obs_space: (gym.Space) type of obsrervation space; Box, Discrete, MultiDiscrete
             obs: (tensor) observation
         """
-        if isinstance(ob_space, Discrete):
-            pass
+        return self._encoder(obs)
         
-
         
     def step(self, observation, **extra_feed):
         """
@@ -83,6 +84,7 @@ class PolicyWithValue(object):
  
         """
         pass
+
 
     def value(self, observations, **extra_feed):
         """
