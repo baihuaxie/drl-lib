@@ -14,29 +14,46 @@ import numpy as np
 from common.policy_util import PolicyWithValue
 
 @pytest.fixture
-def env_fn():
+def env_fn_discrete():
+    """
+    Return a gym.env object
+    """
+    return gym.make('FrozenLake-v0')
+
+@pytest.fixture
+def init_obj_discrete(env_fn_discrete):
+    """
+    Instantiate a PolicyWithValue class object
+    """
+    MyNet = PolicyWithValue(
+        policy_net = 'simplecnn',
+        env = env_fn_discrete,
+        normalize_observations=False
+    )
+    return MyNet
+
+@pytest.fixture
+def env_fn_box():
     """
     Return a gym.env object
     """
     return gym.make('CartPole-v0')
 
 @pytest.fixture
-def init_obj(env_fn):
+def init_obj_box(env_fn_box):
     """
     Instantiate a PolicyWithValue class object
     """
-    obs = np.random.randn(1, 2)
     MyNet = PolicyWithValue(
         policy_net = 'simplecnn',
-        env = env_fn,
-        obs_shape = obs.shape,
+        env = env_fn_box,
         normalize_observations=True
     )
     return MyNet
 
 
 @pytest.mark.skip('this test is wrong, delete later')
-def test_normalize_obs(init_obj):
+def test_normalize_obs(init_obj_discrete):
     """
     normalize observations by running mean & std
     """
@@ -57,12 +74,15 @@ def test_normalize_obs(init_obj):
     assert np.allclose(ms1, ms2)
 
 
-@pytest.mark.skip('not yet ready')
-def test_step(init_obj):
+def test_step_discrete(init_obj_discrete, env_fn_discrete):
     """
-    Make one step
+    Make one agent step in a Discrete environment
     """
-    net = init_obj
-    obs = torch.rand(1, 8, 8, 3, dtype=torch.float32)
-    net.step(obs)
+    net = init_obj_discrete
+    env = env_fn_discrete
+    # 20 random observations from Discrete space 
+    obs = torch.randint(0, env.observation_space.n, (1, 20,), dtype=torch.int64)
+
+    print(obs)
+    print(net.step(obs).shape)
 

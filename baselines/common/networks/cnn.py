@@ -21,7 +21,7 @@ def conv5x5(in_planes, out_planes, stride=1, groups=1):
         - requires padding=2, dilation=1
     - becomes depthwise conv filter when in_planes = out_planes = groups
     """
-    return nn.Conv2d(in_planes, out_planes, kernel_size=5, stride=stride, groups=groups,
+    return nn.Conv1d(in_planes, out_planes, kernel_size=5, stride=stride, groups=groups,
                      padding=2, dilation=1, bias=False)
 
 
@@ -34,7 +34,7 @@ def conv3x3(in_planes, out_planes, stride=1, groups=1):
         - requires padding=1, dilation=1
     - becomes depthwise conv filter when in_planes = out_planes = groups
     """
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, groups=groups,
+    return nn.Conv1d(in_planes, out_planes, kernel_size=3, stride=stride, groups=groups,
                      padding=1, dilation=1, bias=False)
 
 
@@ -47,7 +47,7 @@ def conv1x1(in_planes, out_planes, stride=1, groups=1):
         - requires padding=0, dilation=arbitrary
     - becomes depthwise conv filter when in_planes = out_planes = groups
     """
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, groups=groups,
+    return nn.Conv1d(in_planes, out_planes, kernel_size=1, stride=stride, groups=groups,
                      padding=0, dilation=1, bias=False)
 
 
@@ -78,7 +78,7 @@ class BasicBlock(nn.Module):
         super(BasicBlock, self).__init__()
 
         if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
+            norm_layer = nn.BatchNorm1d
         if act_layer is None:
             act_layer = nn.ReLU
 
@@ -127,13 +127,13 @@ class ConvNet(nn.Module):
         super(ConvNet, self).__init__()
 
         if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
+            norm_layer = nn.BatchNorm1d
         self._norm_layer = norm_layer
         if act_layer is None:
             act_layer = nn.ReLU
         self._act_layer = act_layer
 
-        self.conv1 = conv3x3(3, 16, stride=2)
+        self.conv1 = conv3x3(1, 16, stride=1)
         self.bn1 = norm_layer(16)
 
         self.stack1 = self._make_stack(block=block, num_layers=layers[0], inplanes=16, outplanes=32,
@@ -143,7 +143,7 @@ class ConvNet(nn.Module):
         self.stack3 = self._make_stack(block=block, num_layers=layers[2], inplanes=64, outplanes=128,
                                        kernel_size=3, stride=2)
 
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.avgpool = nn.AdaptiveAvgPool1d((1))
         self.fc = nn.Linear(128, latent_dim)
 
         self.relu = self._act_layer(inplace=True)

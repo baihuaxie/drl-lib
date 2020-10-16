@@ -16,7 +16,7 @@ class PolicyWithValue(object):
     Common interface for policy and value networks
     """
 
-    def __init__(self, policy_net, env=None, obs_shape=None, value_net=None,
+    def __init__(self, policy_net, env=None, value_net=None,
                  estimate_q=False, normalize_observations=False):
         """
         Constructor
@@ -42,11 +42,14 @@ class PolicyWithValue(object):
         self._estimate_q_flag = estimate_q
         self._normalize_obs_flag = normalize_observations
 
-        self._rms = RunningMeanStd(shape=obs_shape)
-        
-        if isinstance(env.observation_space, Discrete):
-            self._encoder = OneHotPreprocessor(env.Observation_space)
-
+        if isinstance(env.observation_space, Box):
+            self._rms = RunningMeanStd(shape=torch.Size((1,) + env.observation_space.shape))
+            # returns obs directly without encoding for Box environments
+            self._encoder = lambda *args: args
+        elif isinstance(env.observation_space, Discrete):
+            self._rms = RunningMeanStd(shape=torch.Size((1,) + (env.observation_space.n,)))
+            self._encoder = OneHotPreprocessor(env.observation_space)
+            
 
     def _normalize_observations(self, obs, clip_range=[-50.0, 50.0]):
         """
@@ -71,19 +74,43 @@ class PolicyWithValue(object):
             obs: (tensor) observation
         """
         return self._encoder(obs)
+
+
+    def _preprocess(self, obs):
+        """
+        Preprocess observations
+        - normalize
+        - encode
+        """
+        if self._normalize_obs_flag:
+            obs = self._normalize_observations(obs)
+        obs = self._encode_observations(obs)
+        return obs
         
         
-    def step(self, observation, **extra_feed):
+    def step(self, obs, **extra_feed):
         """
         Compute the next action(s) given the observation(s)
 
         Args:
-            observation: (tensor) observation(s) data
+            obs: (tensor) observation(s)
 
         Returns:
- 
+            action: (tensor)
+            value: (tensor)
+            next_state: (tensor)
+            neglogp: (tensor)
         """
-        pass
+        # 1) preprocess
+        obs = self._preprocess(obs)
+        obs = obs.float()
+        # 2) compute action
+        policy_logits = self._policy_net(obs[:,0:1,:])
+        return policy_logits
+
+
+
+
 
 
     def value(self, observations, **extra_feed):

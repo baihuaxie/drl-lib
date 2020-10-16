@@ -19,7 +19,7 @@ class RunningMeanStd(object):
     """
     Running Mean & Std class
     """
-    def __init__(self, shape=(), epsilon=1e-1):
+    def __init__(self, shape=(), epsilon=1e-5):
         """
         Constructor
 
@@ -27,10 +27,13 @@ class RunningMeanStd(object):
             shape: (tuple) a tuple of integers for the shape of input tensor
                    axis=0 is the summary axis
         """
-        self._sum = torch.zeros(shape, dtype=torch.float32)
-        self._sumsq = torch.zeros(shape, dtype=torch.float32)
-        self._count = epsilon
         self._shape = shape[1:]
+        # use a shape of (1, shape) to initialize sum & sumsq
+        # b.c. size of axis=0 is insignificant for initialization
+        # this enables instantiation by env.observation_space.shape
+        self._sum = torch.zeros(((1,) + self._shape), dtype=torch.float32)
+        self._sumsq = torch.zeros(((1,) + self._shape), dtype=torch.float32)
+        self._count = epsilon
 
         # mean & std tensors omits the summary axis
         self._mean = torch.zeros(self._shape, dtype=torch.float32)
@@ -84,34 +87,42 @@ class OneHotPreprocessor(object):
             raise ValueError("one-hot encoding not supported on Box space!")
         self._obs_space_n = obs_space.n
 
+
     def _check_type(self, obs):
         """
         Check if input observation tensor is suitable for Discrete spaces
 
         Args:
-            obs: (tensor) a tensor of observations
+            obs: (tensor) a 2D tensor of observations (int64) in form = batch x timesteps
 
         Returns:
             (bool) if true suggests obs tensor can be one-hot encoded
         """
-        if obs.dtype == torch.int64 and len(obs.shape) == 1:
+        if obs.dtype == torch.int64 and len(obs.shape) == 2:
             pass
         else:
-            raise TypeError("Observation type error! Expected 1D tensor of torch.int64\
+            raise TypeError("Observation type error! Expected 2D tensor of torch.int64\
                 but got {}D tensor of {}".format(len(obs.shape), obs.dtype))
+
 
     def encode(self, obs):
         """
         Encode the observations by one-hot encoding
+
+        Args:
+            obs: (tensor) a 2D tensor of observations (int64) in form = batch x timesteps
         """
-        # returns a 2-d tensor of dimension = timestep x obs_space_n
-        arr = torch.zeros(obs.shape[0], self._obs_space_n, dtype=int)
+        # returns a 3-d tensor of dimension = batch x timestep x obs_space_n
+        arr = torch.zeros(tuple(obs.shape) + (self._obs_space_n,), dtype=int)
         # create a conditional boolean mask for one-hot encoding
         # if obs[i] == j set mask[i][j] = True else False
         mask = torch.BoolTensor(
             [
                 [
-                    True if i == obs[j] else False for i in range(arr.shape[1])
+                    [
+                    True if i == obs[j][k] else False for i in range(arr.shape[2])
+                    ]
+                    for k in range(arr.shape[1])
                 ]
                 for j in range(arr.shape[0])
             ]
@@ -119,6 +130,7 @@ class OneHotPreprocessor(object):
         # one-hot encoding
         arr[mask] = 1
         return arr
+
 
     def __call__(self, obs):
         """
