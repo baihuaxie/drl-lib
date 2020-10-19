@@ -3,6 +3,7 @@ Utilities to register, build networks
 """
 
 from common.networks.cnn import _convnet, BasicBlock
+from common.networks.mlp import MLP
 
 mapping = {}
 
@@ -53,6 +54,13 @@ def convnet_simplecnn_k3s4(pretrained=False, progress=False, **kwargs):
     return _convnet('simplecnn', block=BasicBlock, layers=[1, 1, 1, 1], latent_dim=512,
                     pretrained=pretrained, progress=progress, **kwargs)
 
+
+@register(name='mlp')
+def mlp(obs_dim, act_dim):
+    """
+    2-layer MLP
+    """
+    return MLP(obs_dim, act_dim)
 
 
 def get_network_builder(name):

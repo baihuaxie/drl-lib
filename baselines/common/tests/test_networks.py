@@ -26,7 +26,7 @@ def init_obj_discrete(env_fn_discrete):
     Instantiate a PolicyWithValue class object
     """
     MyNet = PolicyWithValue(
-        policy_net = 'simplecnn',
+        policy_net = 'mlp',
         env = env_fn_discrete,
         normalize_observations=False
     )
@@ -45,44 +45,48 @@ def init_obj_box(env_fn_box):
     Instantiate a PolicyWithValue class object
     """
     MyNet = PolicyWithValue(
-        policy_net = 'simplecnn',
+        policy_net = 'mlp',
         env = env_fn_box,
         normalize_observations=True
     )
     return MyNet
 
 
-@pytest.mark.skip('this test is wrong, delete later')
-def test_normalize_obs(init_obj_discrete):
-    """
-    normalize observations by running mean & std
-    """
-    net = init_obj
-    x = np.empty((0, 2))
-    for idx in range(1, 10):
-        # new random observations
-        obs = np.random.randn(idx, 2)
-
-        x = np.concatenate([x, obs], axis=0)
-        ms1 = [x.mean(axis=0), x.std(axis=0)]
-
-        obs_norm = net._normalize_observations(torch.from_numpy(obs))
-        obs_norm = obs_norm.numpy()
-        ms2 = [obs_norm.mean(axis=0), obs_norm.std(axis=0)]
-    print(ms1)
-    print(ms2)
-    assert np.allclose(ms1, ms2)
-
-
 def test_step_discrete(init_obj_discrete, env_fn_discrete):
     """
-    Make one agent step in a Discrete environment
+    Step agent in a Discrete environment
     """
     net = init_obj_discrete
     env = env_fn_discrete
-    # 20 random observations from Discrete space 
-    obs = torch.randint(0, env.observation_space.n, (1, 20,), dtype=torch.int64)
 
-    print(obs)
-    print(net.step(obs).shape)
+    obs = env.reset()
+
+    for _ in range(10):
+        obs = torch.tensor([obs], dtype=torch.int64)
+        action, neglogp, value = net.step(obs)
+        obs, reward, _, _ = env.step(action.item())
+        # env.render()
+        print("action: {}".format(action.item()))
+        print("neglogp: {}".format(neglogp.item()))
+        print("value: {}".format(value.item()))
+
+
+def test_step_box(init_obj_box, env_fn_box):
+    """
+    Step agent in a Box environment
+    """
+    net = init_obj_box
+    env = env_fn_box
+
+    obs = env.reset()
+
+    for _ in range(10):
+        obs = torch.tensor(obs, dtype=torch.float32)
+        print(obs)
+        action, neglogp, value = net.step(obs)
+        obs, reward, _, _ = env.step(action.item())
+        # env.render()
+        print("action: {}".format(action))
+        print("neglogp: {}".format(neglogp))
+        print("value: {}".format(value))
 
