@@ -10,8 +10,8 @@ import torch.distributions as distr
 import torch.nn as nn
 from gym.spaces import Discrete, Box, MultiDiscrete
 
-from common.networks.get_networks import get_network_builder
-from common.preprocessor import RunningMeanStd, OneHotPreprocessor
+from baselines.common.networks.get_networks import get_network_builder
+from baselines.common.preprocessor import RunningMeanStd, OneHotPreprocessor
 
 class PolicyWithValue(object):
     """
@@ -24,14 +24,14 @@ class PolicyWithValue(object):
     # make one agent step by taking in a single observation tensor
     action, value_estimate, neglogp = net.step(observation)
     """
-    def __init__(self, policy_net, env, value_net=None,
+    def __init__(self, env, policy_net, value_net=None,
                  estimate_q=False, normalize_observations=False):
         """
         Constructor
 
         Args:
-            policy_net:     (str) type of policy network, required
             env:            (gym.Env) environment, required
+            policy_net:     (str) type of policy network, required
             value_net:      (str) type of value network; if None or 'shared', default
                             value_net = policy_net (plus output layers)
             estimate_q:     (bool) if True returns an estimate for q-value instead
@@ -96,8 +96,7 @@ class PolicyWithValue(object):
             self._rms = RunningMeanStd(shape=torch.Size(self._env.observation_space.shape))
             self._encoder = None
         elif self._obs_is_Discrete:
-            self._rms = RunningMeanStd(shape=torch.Size((1,) + \
-                (self._env.observation_space.n,)))
+            self._rms = None
             self._encoder = OneHotPreprocessor(self._env.observation_space)
 
         # additional flags
@@ -131,6 +130,7 @@ class PolicyWithValue(object):
             obs = self._encoder(obs)
         return obs
 
+
     def step(self, observation):
         """
         Compute the next action(s) given the observation(s)
@@ -157,18 +157,27 @@ class PolicyWithValue(object):
         neglogp = -pd.log_prob(action)
         value = self._value_net(obs)
 
-        return action, neglogp, value
+        return map(postprocess, (action, value, neglogp))
 
 
-def build_policy(env, policy_network, value_network=None, normalize_observations=False,\
-    **policy_kwargs):
+def postprocess(x):
+    """
+    Post-process
+    - turn all returns into tensors of proper shape
+    - for single-value return, convert to 1D (not 0D) tensor
+    """
+    x = torch.tensor(x)
+    if x.dim() == 0:
+        x = x.reshape((1,))
+    return x
+
+def build_policy(env, policy_network, **policy_kwargs):
     """
     Policy / Value network builder
 
     Args:
         env: (gym.Env class) environment
         policy_network: (str) name for the policy network type
-        normalize_observations: (bool) if true normalizes and clips the observation space
         **policy_kwargs: pointer to arguments to instantiate the policy network
 
     Returns:
@@ -176,21 +185,7 @@ def build_policy(env, policy_network, value_network=None, normalize_observations
                                 along with methods to return actions / value estimates given
                                 current observations
     """
-    if isinstance(policy_network, str):
-        # if 'policy_network' is a network type name
-        # call the get_network_builder function
-        # Q: is this redundant? because get_network_builder already has a check for
-        # if 'policy_network' name is callable
-        network_type = policy_network
-        # policy_network is a customized (by network_type & **policy_kwargs) network object
-        policy_network = get_network_builder(network_type)(**policy_kwargs)
-
-        def policy_fn(nbatch=None, nsteps=None):
-            """
-            A function to return a policy network + methods
-            """
-            # get observation space
-            ob_space = env.observation_space
+    return PolicyWithValue(env, policy_network, **policy_kwargs)
 
 
 def make_pdtype(act_space):

@@ -32,15 +32,21 @@ def set_global_seed(seed):
         torch.manual_seed(myseed)
 
 
-def encode_observation(ob_space):
+def dtype_to_torch(dtype):
     """
-    Encode observation in the way that is appropriate to the environment's observation space
+    Convert an np.dtype to torch.dtype
 
     Args:
-        ob_space: (gym.space) observation space type; Box, Discrete or MultiDiscrete
+        dtype: (np.dtype) a np datatype
     """
-    if isinstance(ob_space, Box):
-        pass
+    import numpy as np
+    import torch
+
+    dict_dtype = {
+        np.dtype('int64') : torch.int64,
+        np.dtype('float32') : torch.float32
+    }
+    return dict_dtype[dtype]
 
 
 

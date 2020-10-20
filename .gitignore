@@ -127,3 +127,6 @@ dmypy.json
 96_work_logs/*
 97_assets/*
 98_notes/*
+dev.env
+.vscode/launch.json
+.vscode/settings.json

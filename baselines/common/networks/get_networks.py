@@ -2,8 +2,8 @@
 Utilities to register, build networks
 """
 
-from common.networks.cnn import _convnet, BasicBlock
-from common.networks.mlp import MLP
+from baselines.common.networks.cnn import _convnet, BasicBlock
+from baselines.common.networks.mlp import MLP
 
 mapping = {}
 
@@ -41,28 +41,6 @@ def register(name):
         return func
     return _decorator
 
-
-@register(name='simplecnn')
-def convnet_simplecnn_k3s4(pretrained=False, progress=False, **kwargs):
-    """
-    Simple CNN network
-    - kernel_size = 3 (default)
-    - stacks = 4
-        each stack contains 1 block with stride=2
-    - latent_dim = 512
-    """
-    return _convnet('simplecnn', block=BasicBlock, layers=[1, 1, 1, 1], latent_dim=512,
-                    pretrained=pretrained, progress=progress, **kwargs)
-
-
-@register(name='mlp')
-def mlp(obs_dim, act_dim):
-    """
-    2-layer MLP
-    """
-    return MLP(obs_dim, act_dim)
-
-
 def get_network_builder(name):
     """
     Returns the network builer function by name
@@ -87,3 +65,24 @@ def get_network_builder(name):
     else:
         # raise an error otherwise
         raise ValueError('Unknown network type: {}'.format(name))
+
+
+@register(name='simplecnn')
+def convnet_simplecnn_k3s4(pretrained=False, progress=False, **kwargs):
+    """
+    Simple CNN network
+    - kernel_size = 3 (default)
+    - stacks = 4
+        each stack contains 1 block with stride=2
+    - latent_dim = 512
+    """
+    return _convnet('simplecnn', block=BasicBlock, layers=[1, 1, 1, 1], latent_dim=512,
+                    pretrained=pretrained, progress=progress, **kwargs)
+
+
+@register(name='mlp')
+def mlp(obs_dim, act_dim):
+    """
+    2-layer MLP
+    """
+    return MLP(obs_dim, act_dim)
