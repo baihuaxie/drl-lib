@@ -130,7 +130,6 @@ class PolicyWithValue(object):
             obs = self._encoder(obs)
         return obs
 
-
     def step(self, observation):
         """
         Compute the next action(s) given the observation(s)
@@ -170,6 +169,7 @@ def postprocess(x):
     if x.dim() == 0:
         x = x.reshape((1,))
     return x
+
 
 def build_policy(env, policy_network, **policy_kwargs):
     """

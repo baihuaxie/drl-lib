@@ -8,6 +8,7 @@ except ImportError:
     MPI = None
 
 import torch
+import numpy as np
 from gym.spaces import Discrete, Box, MultiDiscrete
 
 
@@ -47,6 +48,16 @@ def dtype_to_torch(dtype):
         np.dtype('float32') : torch.float32
     }
     return dict_dtype[dtype]
+
+
+def numpy_to_torch(x):
+    """
+    Convert a scalar or np.ndarray to torch.tensor
+    """
+    if np.isscalar(x):
+        return torch.tensor(x)
+    else:
+        return torch.from_numpy(x)
 
 
 
