@@ -136,7 +136,7 @@ class DummyVecEnv(VecEnv):
             self._save_obs(e, obs)
             self._rews[e] = numpy_to_torch(rew).detach().clone()
             self._dones[e] = numpy_to_torch(done).detach().clone()
-        return self._obs_dict, self._rews, self._dones, self._infos
+        return obs_dict_to_tensor(self._obs_dict), self._rews, self._dones, self._infos
 
 
     def get_images(self):

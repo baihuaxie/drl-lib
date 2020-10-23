@@ -13,7 +13,7 @@ def seed_env(env, seed):
     env.seed(seed)
     return lambda: env
 
-
+@pytest.mark.skip
 @pytest.mark.parametrize("env", [
     gym.make('FrozenLake-v0'),
     gym.make('CartPole-v0')
@@ -41,7 +41,7 @@ def test_init_dummy_vec_env(env):
     # 7) render all environments
     # 8) capture image from environments
 
-
+@pytest.mark.skip
 @pytest.mark.parametrize("env, num_envs", [
     (gym.make('FrozenLake-v0'), 5),
     (gym.make('FrozenLake-v0'), 1),
@@ -66,9 +66,9 @@ def test_step_async(env, num_envs):
 
 @pytest.mark.parametrize("env, num_envs", [
     (gym.make('FrozenLake-v0'), 5),
-    (gym.make('FrozenLake-v0'), 1),
+    #(gym.make('FrozenLake-v0'), 1),
     (gym.make('CartPole-v0'), 5),
-    (gym.make('CartPole-v0'), 1),
+    #(gym.make('CartPole-v0'), 1),
 ])
 def test_step_wait(env, num_envs):
     """
@@ -81,9 +81,13 @@ def test_step_wait(env, num_envs):
         action = env.action_space.sample()
         actions.append(action)
     env.reset()
-    print(env._dones)
     env.step_async(actions)
     obs, rewards, dones, info = env.step_wait()
+    print()
+    print("observations: {}".format(obs))
+    print("rewards: {}".format(rewards))
+    print("dones: {}".format(dones))
+    print("info: {}".format(info))
 
 
 
