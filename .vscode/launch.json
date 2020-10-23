@@ -12,7 +12,8 @@
         "request": "launch",
         "program": "${file}",
         "console": "integratedTerminal",
-        "cwd": "${fileDirname}", //work folder when debug
+        //"cwd": "${fileDirname}", //work folder when debug
+        "cwd": "${workspaceFolder}"
 
     },
     {

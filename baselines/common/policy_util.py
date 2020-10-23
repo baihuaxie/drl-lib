@@ -6,43 +6,103 @@ import sys
 sys.path.append('../')
 
 import torch
+import torch.distributions as distr
+import torch.nn as nn
 from gym.spaces import Discrete, Box, MultiDiscrete
 
-from common.networks.get_networks import get_network_builder
-from common.math_util import RunningMeanStd
+from baselines.common.networks.get_networks import get_network_builder
+from baselines.common.preprocessor import RunningMeanStd, OneHotPreprocessor
 
 class PolicyWithValue(object):
     """
     Common interface for policy and value networks
-    """
 
-    def __init__(self, policy_net, env=None, obs_shape=None, value_net=None,
+    Example:
+
+    net = PolicyWithValue(policy_network, env, **extra_kwargs)
+
+    # make one agent step by taking in a single observation tensor
+    action, value_estimate, neglogp = net.step(observation)
+    """
+    def __init__(self, env, policy_net, value_net=None,
                  estimate_q=False, normalize_observations=False):
         """
         Constructor
 
         Args:
-            env:            (gym.Env) environment
-            policy_net:     (str) type of policy network
+            env:            (gym.Env) environment, required
+            policy_net:     (str) type of policy network, required
             value_net:      (str) type of value network; if None or 'shared', default
-                            value_net = policy_net
-            estimate_q:     (bool) if True also returns an estimate for q-value 
+                            value_net = policy_net (plus output layers)
+            estimate_q:     (bool) if True returns an estimate for q-value instead
+                            only valid if env.action_space is Discrete
+            normalize_observations: (bool) if True normalize observations by running
+                            mean & std; does not support Discrete space
         """
         super().__init__()
 
-        self._policy_net = get_network_builder(policy_net)()
-
-        # consider cases where policy net and value net share all but last few output layers?
-        if value_net is None or value_net == 'shared':
-            self._value_net = self._policy_net
-        else:
-            self._value_net = get_network_builder(value_net)()
-
+        # get environment
         self._env = env
-        self._estimate_q_flag = estimate_q
-        self._normalize_obs_flag = normalize_observations
+        # get env type flags
+        self._obs_is_Discrete = True if isinstance(self._env.observation_space, Discrete) \
+            else False
+        self._obs_is_Box = True if isinstance(self._env.observation_space, Box) else False
+        self._act_is_Discrete = True if isinstance(self._env.action_space, Discrete) \
+            else False
+        self._act_is_Box = True if isinstance(self._env.action_space, Box) else False
 
-        self._rms = RunningMeanStd(shape=obs_shape)
+        # get policy / value network input dimension
+        if self._obs_is_Discrete:
+            self._obs_dim = self._env.observation_space.n
+        elif self._obs_is_Box:
+            self._obs_dim = self._env.observation_space.shape[0]
+        else:
+            raise TypeError("Observation space type {} not supported!".format( \
+                            self._env.observation_space))
+        # get policy network output dimension
+        if self._act_is_Discrete:
+            self._act_dim = self._env.action_space.n
+        elif self._act_is_Box:
+            self._act_dim = self._env.action_space.shape
+        else:
+            raise TypeError("Action space type {} not supported!".format( \
+                            self._env.action_space))
+        # get value network output dimension
+        if estimate_q:
+            assert self._act_is_Discrete, "Can not estimate Q value for non-Discrete env"
+            self._value_latent_dim = self._env.action_space.n
+        else:
+            self._value_latent_dim = 1 
+
+        # build policy network
+        self._policy_latent_dim = self._act_dim
+        self._policy_net = get_network_builder(policy_net)(self._obs_dim, \
+            self._policy_latent_dim)
+        # build probability distribution layer from action space
+        self.pdtype = make_pdtype(self._env.action_space)
+        # build value network
+        if value_net is None or value_net == 'shared':
+            # value & policy nets shared all but last output layer(s)
+            self._value_net = nn.Sequential(
+                self._policy_net,
+                nn.Linear(self._policy_latent_dim, self._value_latent_dim)
+            )       
+        else:
+            self._value_net = get_network_builder(value_net)(self._obs_dim, \
+                self._value_latent_dim)
+
+        # build pre-processors
+        if self._obs_is_Box:
+            self._rms = RunningMeanStd(shape=torch.Size(self._env.observation_space.shape))
+            self._encoder = None
+        elif self._obs_is_Discrete:
+            self._rms = None
+            self._encoder = OneHotPreprocessor(self._env.observation_space)
+
+        # additional flags
+        if normalize_observations:
+            assert not self._obs_is_Discrete
+        self._normalize_obs_flag = normalize_observations
 
 
     def _normalize_observations(self, obs, clip_range=[-50.0, 50.0]):
@@ -56,49 +116,68 @@ class PolicyWithValue(object):
         self._rms.update(obs)
         norm_x = torch.clamp((obs - self._rms.mean) / self._rms.std, \
                               min(clip_range), max(clip_range))
-        return norm_x
+        return torch.tensor(norm_x)
 
-
-    def _encode_observations(self, obs_space, obs):
+    def _preprocess(self, obs):
         """
-        Encode the observations to be suitable for env.observation_space
-
-        Args:
-            obs_space: (gym.Space) type of obsrervation space; Box, Discrete, MultiDiscrete
-            obs: (tensor) observation
+        Preprocess observations
+        - normalize
+        - encode
         """
-        if isinstance(ob_space, Discrete):
-            pass
-        
+        if self._normalize_obs_flag:
+            obs = self._normalize_observations(obs)
+        if self._encoder:
+            obs = self._encoder(obs)
+        return obs
 
-        
-    def step(self, observation, **extra_feed):
+    def step(self, observation):
         """
         Compute the next action(s) given the observation(s)
 
         Args:
-            observation: (tensor) observation(s) data
+            observation: (tensor) a tensor of observation data sample
+                         supports single sample only (not batched)
 
         Returns:
- 
+            action: (tensor) sampled action
+            value: (tensor) value / q-value estimation
+            neglogp: (tensor) negative log-likelihood of given sampled action
         """
-        pass
+        # preprocess
+        obs = self._preprocess(observation)
+        # get action probabilities
+        policy_latent = self._policy_net(obs)
+        # build distribution
+        pd = self.pdtype(policy_latent)
+        # sample action
+        # Q: how to ensure sampled action dtype == env.action_space.dtype?
+        action = pd.sample()
+        # get returned values
+        neglogp = -pd.log_prob(action)
+        value = self._value_net(obs)
 
-    def value(self, observations, **extra_feed):
-        """
-        Compute the value estimate given the observation(s)
-        """
-        pass
+        return map(postprocess, (action, value, neglogp))
 
 
-def build_policy(env, policy_network, value_network=None, normalize_observations=False, **policy_kwargs):
+def postprocess(x):
+    """
+    Post-process
+    - turn all returns into tensors of proper shape
+    - for single-value return, convert to 1D (not 0D) tensor
+    """
+    x = torch.tensor(x)
+    if x.dim() == 0:
+        x = x.reshape((1,))
+    return x
+
+
+def build_policy(env, policy_network, **policy_kwargs):
     """
     Policy / Value network builder
 
     Args:
         env: (gym.Env class) environment
         policy_network: (str) name for the policy network type
-        normalize_observations: (bool) if true normalizes and clips the observation space
         **policy_kwargs: pointer to arguments to instantiate the policy network
 
     Returns:
@@ -106,30 +185,31 @@ def build_policy(env, policy_network, value_network=None, normalize_observations
                                 along with methods to return actions / value estimates given
                                 current observations
     """
-    if isinstance(policy_network, str):
-        # if 'policy_network' is a network type name
-        # call the get_network_builder function
-        # Q: is this redundant? because get_network_builder already has a check for
-        # if 'policy_network' name is callable
-        network_type = policy_network
-        # policy_network is a customized (by network_type & **policy_kwargs) network object
-        policy_network = get_network_builder(network_type)(**policy_kwargs)
-
-        def policy_fn(nbatch=None, nsteps=None):
-            """
-            A function to return a policy network + methods
-            """
-            # get observation space
-            ob_space = env.observation_space
+    return PolicyWithValue(env, policy_network, **policy_kwargs)
 
 
+def make_pdtype(act_space):
+    """
+    Return a parameterized probability distribution suitable for act_space
+
+    Args:
+        act_space: (env.space) action_space
+    """
+    if isinstance(act_space, Box):
+        assert len(act_space.shape) == 1
+        return distr.Normal
+    if isinstance(act_space, Discrete):
+        return distr.Categorical
+    
 
 if __name__ == '__main__':
+    import gym
+    env = gym.make('CartPole-v0')
     net = PolicyWithValue(
-        policy_net = 'simplecnn',
+        policy_net = 'mlp',
+        env = env,
         normalize_observations=True
     )
-    import numpy as np
-    obs = np.random.randn(1, 2)
-    obs_norm = net._normalize_observations(torch.from_numpy(obs))
-    print(obs_norm.numpy())
+    obs = env.reset()
+    obs = torch.tensor(obs, dtype=torch.float32)
+    action, neglogp, value = net.step(obs)
